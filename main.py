@@ -1,106 +1,83 @@
+import os
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import psycopg2
-import psycopg2.extras
-from datetime import datetime, timedelta
-from pathlib import Path
+from psycopg2.extras import RealDictCursor
+from typing import Optional
 
-# ---------- DB CONFIG ----------
-DB_CONFIG = {
-    "dbname": "neondb",
-    "user": "neondb_owner",
-    "password": "npg_C0rMuPzQB5qd",
-    "host": "ep-round-voice-a1cdpuk5-pooler.ap-southeast-1.aws.neon.tech",
-    "port": "5432",
-    "sslmode": "require"
-}
+app = FastAPI(title="CVE Dashboard")
 
-def get_connection():
-    return psycopg2.connect(**DB_CONFIG)
-
-def query_db(sql, params=None, fetch_one=False):
-    conn = get_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute(sql, params or {})
-    result = cur.fetchone() if fetch_one else cur.fetchall()
-    cur.close()
-    conn.close()
-    return result
-
-# ---------- FastAPI ----------
-app = FastAPI(title="NVD CVE Dashboard")
+# Enable CORS if frontend is served separately
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Or specify your frontend URL
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ---------- CVE LIST ----------
+# Serve frontend static files
+app.mount("/", StaticFiles(directory="../frontend", html=True), name="frontend")
+
+# Connect to Neon DB using environment variable
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL environment variable not set!")
+
+conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+cur = conn.cursor()
+
+# ==============================
+# API Endpoints
+# ==============================
+
 @app.get("/cves/list")
-def list_cves(
-    page: int = 1,
-    results_per_page: int = 10,
-    sort_by: str = "published_date",
-    sort_order: str = "desc",
-    year: int = None,
-    min_score_v3: float = None,
-    min_score_v2: float = None,
-    last_n_days: int = None,
-    cve_id: str = None
-):
-    offset = (page - 1) * results_per_page
-    conditions = []
-    params = {}
+def list_cves(year: Optional[int] = None, score_min: Optional[float] = None, last_modified_days: Optional[int] = None, limit: int = 10, offset: int = 0):
+    try:
+        query = "SELECT cve_id, published_date, last_modified, base_score_v3, base_score_v2, description FROM cves WHERE TRUE"
+        params = []
 
-    if year: conditions.append("EXTRACT(YEAR FROM published_date) = %(year)s"); params["year"] = year
-    if min_score_v3 is not None: conditions.append("base_score_v3 >= %(min_score_v3)s"); params["min_score_v3"] = min_score_v3
-    if min_score_v2 is not None: conditions.append("base_score_v2 >= %(min_score_v2)s"); params["min_score_v2"] = min_score_v2
-    if last_n_days: dt = datetime.utcnow() - timedelta(days=last_n_days); conditions.append("last_modified >= %(since)s"); params["since"] = dt
-    if cve_id: conditions.append("cve_id ILIKE %(cve_id)s"); params["cve_id"] = f"%{cve_id}%"
+        if year:
+            query += " AND EXTRACT(YEAR FROM published_date) = %s"
+            params.append(year)
 
-    where_clause = " AND ".join(conditions) if conditions else "TRUE"
+        if score_min:
+            query += " AND (COALESCE(base_score_v3,0) >= %s OR COALESCE(base_score_v2,0) >= %s)"
+            params.extend([score_min, score_min])
 
-    if sort_by not in ["published_date", "last_modified"]:
-        sort_by = "published_date"
-    if sort_order.lower() not in ["asc", "desc"]:
-        sort_order = "desc"
+        if last_modified_days:
+            query += " AND last_modified >= NOW() - INTERVAL '%s days'"
+            params.append(last_modified_days)
 
-    sql = f"""
-        SELECT cve_id, EXTRACT(YEAR FROM published_date) AS year, published_date, last_modified,
-               base_score_v3, base_score_v2, description, raw_json
-        FROM cves
-        WHERE {where_clause}
-        ORDER BY {sort_by} {sort_order.upper()}
-        LIMIT %(limit)s OFFSET %(offset)s
-    """
-    params.update({"limit": results_per_page, "offset": offset})
-    cves = query_db(sql, params)
-    total = query_db(f"SELECT COUNT(*) as total FROM cves WHERE {where_clause}", params, fetch_one=True)["total"]
-    return {"page": page, "results_per_page": results_per_page, "total_records": total, "cves": cves}
+        query += " ORDER BY published_date DESC LIMIT %s OFFSET %s"
+        params.extend([limit, offset])
 
-# ---------- CVE DETAIL ----------
+        cur.execute(query, params)
+        rows = cur.fetchall()
+
+        # Total count
+        cur.execute("SELECT COUNT(*) FROM cves")
+        total_count = cur.fetchone()["count"]
+
+        return {"total_records": total_count, "cves": rows}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/cves/{cve_id}")
-def get_cve(cve_id: str):
-    sql = "SELECT * FROM cves WHERE cve_id=%(cve_id)s"
-    cve = query_db(sql, {"cve_id": cve_id}, fetch_one=True)
-    if not cve:
-        raise HTTPException(status_code=404, detail="CVE not found")
-    return cve
-
-# ---------- Serve Frontend ----------
-FRONTEND_DIR = Path(__file__).parent / "frontend"
-
-@app.get("/", include_in_schema=False)
-def serve_index():
-    return FileResponse(FRONTEND_DIR / "index.html")
-
-@app.get("/detail.html", include_in_schema=False)
-def serve_detail():
-    return FileResponse(FRONTEND_DIR / "detail.html")
-
-# ---------- Run ----------
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+def get_cve_detail(cve_id: str):
+    try:
+        query = """
+        SELECT cve_id, published_date, last_modified, base_score_v3, base_score_v2, description
+        FROM cves
+        WHERE cve_id = %s
+        """
+        cur.execute(query, (cve_id,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="CVE not found")
+        return row
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CVE Detail</title>
+<style>
+body { font-family: Arial, sans-serif; background:#F7F9FA; margin:0; padding:0;}
+.container { max-width:1000px; margin:40px auto; background:#fff; padding:30px; border-radius:10px; box-shadow:0 5px 20px rgba(0,0,0,0.1);}
+h1, .section-title { color:#2C3E50; margin-bottom:15px;}
+table { width:100%; border-collapse: collapse; margin-bottom:20px;}
+th, td { border:1px solid #ddd; padding:10px; text-align:left;}
+th { background:#34495E; color:white;}
+.badge { padding:5px 10px; border-radius:5px; color:white; font-weight:bold; display:inline-block;}
+.badge.low { background: #27AE60; }
+.badge.medium { background: #D35400; }
+.badge.high { background: #C0392B; }
+a { color:#2980B9; text-decoration:underline; }
+button { background:#2980B9;color:white;padding:10px 15px;border:none;border-radius:5px; cursor:pointer; }
+button:hover { background:#1F618D; }
+.section-title { margin-top:20px; color:#2C3E50;}
+@media (max-width:768px){ table, th, td{ font-size:12px; } }
+</style>
+</head>
+<body>
+<div class="container">
+    <h1>CVE Details</h1>
+    <div id="cveDetail"></div>
+    <button onclick="window.history.back()">Back</button>
+</div>
+
+<script>
+const API_BASE = "http://127.0.0.1:8000";
+
+function getCveId() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("cve_id");
+}
+
+function scoreBadge(score){
+    if(score === null || score === undefined) return `<span class="badge low">N/A</span>`;
+    if(score >= 7) return `<span class="badge high">${score}</span>`;
+    if(score >= 4) return `<span class="badge medium">${score}</span>`;
+    return `<span class="badge low">${score}</span>`;
+}
+
+function severityLabel(score){
+    if(score === null || score === undefined) return "N/A";
+    if(score >= 7) return "High";
+    if(score >= 4) return "Medium";
+    return "Low";
+}
+
+async function fetchCveDetail() {
+    const cveId = getCveId();
+    if(!cveId) return;
+
+    const res = await fetch(`${API_BASE}/cves/${cveId}`);
+    const data = await res.json();
+
+    const container = document.getElementById("cveDetail");
+
+    // References
+    let references = [];
+    if(data.raw_json?.references?.reference_data){
+        references = data.raw_json.references.reference_data.map(r => `<a href="${r.url}" target="_blank">${r.url}</a>`);
+    }
+
+    // Vulnerable products
+    let products = [];
+    try{
+        const nodes = data.raw_json.configurations.nodes;
+        nodes.forEach(node=>{
+            if(node.cpe_match){
+                node.cpe_match.forEach(match=>{
+                    if(match.vulnerable) products.push(match.cpe23Uri);
+                });
+            }
+        });
+    } catch(e){ products = []; }
+
+    // Attack Vector & CVSS impacts
+    const cvssV3 = data.raw_json?.metrics?.cvssMetricV3?.cvssData || {};
+    const attackVector = cvssV3.vectorString || "-";
+    const confImpact = cvssV3.confidentialityImpact || "-";
+    const integImpact = cvssV3.integrityImpact || "-";
+    const availImpact = cvssV3.availabilityImpact || "-";
+
+    container.innerHTML = `
+        <h2 class="section-title">Basic Info</h2>
+        <table>
+            <tr><th>CVE ID</th><td>${data.cve_id}</td></tr>
+            <tr><th>Description</th><td>${data.description || "-"}</td></tr>
+            <tr><th>Published Date</th><td>${new Date(data.published_date).toLocaleString()}</td></tr>
+            <tr><th>Last Modified</th><td>${new Date(data.last_modified).toLocaleString()}</td></tr>
+        </table>
+
+        <h2 class="section-title">CVSS Scores</h2>
+        <table>
+            <tr><th>V3 Score</th><td>${scoreBadge(data.base_score_v3)}</td></tr>
+            <tr><th>V2 Score</th><td>${scoreBadge(data.base_score_v2)}</td></tr>
+            <tr><th>Severity</th><td>${severityLabel(data.base_score_v3)}</td></tr>
+            <tr><th>Attack Vector</th><td>${attackVector}</td></tr>
+        </table>
+
+        <h2 class="section-title">Impact</h2>
+        <table>
+            <tr><th>Confidentiality</th><td>${confImpact}</td></tr>
+            <tr><th>Integrity</th><td>${integImpact}</td></tr>
+            <tr><th>Availability</th><td>${availImpact}</td></tr>
+        </table>
+
+        <h2 class="section-title">Products & References</h2>
+        <table>
+            <tr><th>Vulnerable Products</th><td>${products.length ? products.join("<br>") : "-"}</td></tr>
+            <tr><th>References</th><td>${references.length ? references.join("<br>") : "-"}</td></tr>
+        </table>
+    `;
+}
+
+document.addEventListener("DOMContentLoaded", fetchCveDetail);
+</script>
+</body>
+</html>

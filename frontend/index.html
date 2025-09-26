@@ -1,76 +1,75 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
+<meta charset="UTF-8">
 <title>CVE Dashboard</title>
 <style>
-/* Professional color palette (unchanged as requested) */
 body { font-family: Arial, sans-serif; background: #F7F9FA; margin:0; padding:0;}
-.container { max-width: 1200px; margin: 30px auto; padding: 20px; background: #fff; border-radius: 10px; box-shadow:0 5px 20px rgba(0,0,0,0.08);}
+.container { max-width: 1200px; margin: 30px auto; padding: 20px; background: #fff; border-radius: 10px; box-shadow:0 5px 20px rgba(0,0,0,0.1);}
 h1 { color:#2C3E50; margin-bottom:20px;}
 table { width:100%; border-collapse: collapse; margin-bottom:15px;}
-th, td { padding: 10px 12px; border: 1px solid #e6e9ec; text-align:left; vertical-align: middle; }
+th, td { padding: 8px 12px; border: 1px solid #ddd; text-align:left; }
 th { background:#34495E; color:white; cursor:pointer; }
 tr:hover { background: #ECF0F1; }
-.filters { display:flex; flex-wrap:wrap; gap:10px; margin-bottom: 15px; align-items:center; }
-input, select, button { padding: 7px 10px; border-radius:6px; border:1px solid #d0d5da; }
-.description-cell { max-width:300px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.filters { display: flex; flex-wrap: wrap; gap:10px; margin-bottom: 15px; }
+input, select, button { padding: 6px 10px; border-radius:5px; border:1px solid #ccc; }
+.description-cell { max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .description-cell:hover { white-space: normal; background:#f1f5f8; position: relative; z-index:2; }
-.badge { padding:4px 8px; border-radius:5px; color:white; font-weight:600; display:inline-block; font-size:0.9em;}
+.badge { padding:3px 8px; border-radius:5px; color:white; font-weight:bold; display:inline-block; font-size:0.9em;}
 .badge.low { background: #27AE60; }      /* Dark Green */
 .badge.medium { background: #D35400; }   /* Dark Orange */
 .badge.high { background: #C0392B; }     /* Dark Red */
-button.primary { background:#2980B9; color:white; border:none; border-radius:6px; padding:7px 12px; cursor:pointer; }
-button.primary:hover { background:#1F618D; }
-.pager { display:flex; gap:10px; align-items:center; margin-top:10px; }
-.small { font-size:0.9em; color:#666; }
-@media (max-width:768px){ .description-cell{ max-width:150px } }
+button { background:#2980B9; color:white; padding:8px 12px; border:none; border-radius:5px; cursor:pointer; }
+button:hover { background:#1F618D; }
+a { color:#2980B9; text-decoration:underline; }
+@media (max-width: 768px) {
+    .container { padding: 15px; }
+    table, th, td { font-size: 12px; }
+    .description-cell { max-width: 150px; }
+}
 </style>
 </head>
 <body>
 <div class="container">
-    <h1>CVE Dashboard</h1>
+<h1>CVE Dashboard</h1>
 
-    <div class="filters">
-        <input id="searchCve" type="text" placeholder="Search CVE ID (partial OK)" />
-        <input id="filterYear" type="number" placeholder="Year" style="width:100px"/>
-        <input id="filterScoreV3" type="number" step="0.1" placeholder="Min Score V3" style="width:120px"/>
-        <input id="filterScoreV2" type="number" step="0.1" placeholder="Min Score V2" style="width:120px"/>
-        <input id="filterDays" type="number" placeholder="Last N Days" style="width:120px"/>
-        <select id="resultsPerPage">
-            <option value="10">10</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-        </select>
-        <button id="searchBtn" class="primary">Search</button>
-        <div style="margin-left:auto" class="small">Total: <span id="totalRecords">-</span></div>
-    </div>
+<div class="filters">
+<input id="searchCve" type="text" placeholder="Search CVE ID">
+<input id="filterYear" type="number" placeholder="Year">
+<input id="filterScoreV3" type="number" step="0.1" placeholder="Min Score V3">
+<input id="filterScoreV2" type="number" step="0.1" placeholder="Min Score V2">
+<input id="filterDays" type="number" placeholder="Last N Days">
+<select id="resultsPerPage">
+<option value="10">10</option>
+<option value="50">50</option>
+<option value="100">100</option>
+</select>
+<button id="searchBtn">Search</button>
+</div>
 
-    <table>
-        <thead>
-            <tr>
-                <th onclick="sort('published_date')">Published</th>
-                <th onclick="sort('last_modified')">Last Modified</th>
-                <th>CVE ID</th>
-                <th>Year</th>
-                <th>CVSS V3</th>
-                <th>CVSS V2</th>
-                <th>Description</th>
-            </tr>
-        </thead>
-        <tbody id="cveTableBody"></tbody>
-    </table>
-
-    <div class="pager">
-        <button onclick="prevPage()">Prev</button>
-        <div id="pageInfo" class="small"></div>
-        <button onclick="nextPage()">Next</button>
-    </div>
+<div id="totalRecords"></div>
+<table>
+<thead>
+<tr>
+<th onclick="sort('published_date')">Published</th>
+<th onclick="sort('last_modified')">Last Modified</th>
+<th>CVE ID</th>
+<th>Year</th>
+<th>CVSS V3</th>
+<th>CVSS V2</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody id="cveTableBody"></tbody>
+</table>
+<div id="pageInfo"></div>
+<button onclick="prevPage()">Prev</button>
+<button onclick="nextPage()">Next</button>
 </div>
 
 <script>
-const API_BASE = window.location.origin; // same host as served
-let page = 1, resultsPerPage = 10, sortBy='published_date', sortOrder='desc';
+const API_BASE = "http://127.0.0.1:8000";
+let currentPage = 1, resultsPerPage = 10, currentSort="published_date", sortOrder="desc";
 
 function scoreBadge(score){
     if(score === null || score === undefined) return `<span class="badge low">N/A</span>`;
@@ -79,70 +78,61 @@ function scoreBadge(score){
     return `<span class="badge low">${score}</span>`;
 }
 
-function sort(col){
-    if(sortBy === col) sortOrder = sortOrder === 'desc' ? 'asc' : 'desc';
-    else { sortBy = col; sortOrder = 'desc'; }
+function sort(column){
+    if(currentSort===column) sortOrder=sortOrder==="desc"?"asc":"desc";
+    else { currentSort=column; sortOrder="desc"; }
     fetchCves();
 }
 
-function prevPage(){ if(page>1){ page--; fetchCves(); } }
-function nextPage(){ page++; fetchCves(); }
+function prevPage(){ if(currentPage>1){currentPage--; fetchCves(); } }
+function nextPage(){ currentPage++; fetchCves(); }
 
 async function fetchCves(){
-    resultsPerPage = parseInt(document.getElementById('resultsPerPage').value);
-    const year = document.getElementById('filterYear').value;
-    const min_score_v3 = document.getElementById('filterScoreV3').value;
-    const min_score_v2 = document.getElementById('filterScoreV2').value;
-    const last_n_days = document.getElementById('filterDays').value;
-    const cve_id = document.getElementById('searchCve').value;
+    let url = `${API_BASE}/cves/list?page=${currentPage}&results_per_page=${resultsPerPage}&sort_by=${currentSort}&sort_order=${sortOrder}`;
+    const year = document.getElementById("filterYear").value;
+    const minScoreV3 = document.getElementById("filterScoreV3").value;
+    const minScoreV2 = document.getElementById("filterScoreV2").value;
+    const lastDays = document.getElementById("filterDays").value;
+    const search = document.getElementById("searchCve").value;
 
     const params = new URLSearchParams();
-    params.append('page', page);
-    params.append('results_per_page', resultsPerPage);
-    params.append('sort_by', sortBy);
-    params.append('sort_order', sortOrder);
-    if(year) params.append('year', year);
-    if(min_score_v3) params.append('min_score_v3', min_score_v3);
-    if(min_score_v2) params.append('min_score_v2', min_score_v2);
-    if(last_n_days) params.append('last_n_days', last_n_days);
-    if(cve_id) params.append('cve_id', cve_id);
+    if(year) params.append("year", year);
+    if(minScoreV3) params.append("min_score_v3", minScoreV3);
+    if(minScoreV2) params.append("min_score_v2", minScoreV2);
+    if(lastDays) params.append("last_n_days", lastDays);
+    if(search) params.append("cve_id", search);
+    url += "&" + params.toString();
 
-    const res = await fetch(`${API_BASE}/cves/list?${params.toString()}`);
-    if (!res.ok) {
-        alert('Error fetching CVEs: ' + res.status);
-        return;
-    }
+    const res = await fetch(url);
     const data = await res.json();
-    document.getElementById('totalRecords').innerText = data.total_records;
-    document.getElementById('pageInfo').innerText = `Page ${data.page}`;
 
-    const tbody = document.getElementById('cveTableBody');
-    tbody.innerHTML = '';
+    document.getElementById("totalRecords").innerText = `Total Records: ${data.total_records}`;
+    document.getElementById("pageInfo").innerText = `Page ${data.page}`;
+
+    const tableBody = document.getElementById("cveTableBody");
+    tableBody.innerHTML = "";
     data.cves.forEach(cve => {
-        const desc = cve.description || '-';
-        const shortDesc = desc.length > 100 ? desc.substring(0,100) + '...' : desc;
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
+        const desc = cve.description || "-";
+        const shortDesc = desc.length>100 ? desc.substring(0,100)+"..." : desc;
+        const row = document.createElement("tr");
+        row.innerHTML = `
             <td>${new Date(cve.published_date).toLocaleDateString()}</td>
             <td>${new Date(cve.last_modified).toLocaleDateString()}</td>
-            <td style="color:#2980B9; cursor:pointer; text-decoration: underline">${cve.cve_id}</td>
-            <td>${cve.year ?? '-'}</td>
+            <td style="color:#2980B9;text-decoration:underline;cursor:pointer">${cve.cve_id}</td>
+            <td>${cve.year}</td>
             <td>${scoreBadge(cve.base_score_v3)}</td>
             <td>${scoreBadge(cve.base_score_v2)}</td>
-            <td class="description-cell" title="${(desc||'').replace(/"/g,'&quot;')}">${shortDesc}</td>
+            <td class="description-cell" title="${desc.replace(/"/g,'&quot;')}">${shortDesc}</td>
         `;
-        // click to detail
-        tr.querySelector('td:nth-child(3)').addEventListener('click', () => {
-            window.location.href = `detail.html?cve_id=${cve.cve_id}`;
-        });
-        tbody.appendChild(tr);
+        row.querySelector('td:nth-child(3)').addEventListener("click", ()=>{window.location.href=`detail.html?cve_id=${cve.cve_id}`});
+        tableBody.appendChild(row);
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('searchBtn').addEventListener('click', () => { page = 1; fetchCves(); });
-    document.getElementById('resultsPerPage').addEventListener('change', (e) => { resultsPerPage = parseInt(e.target.value); page = 1; fetchCves(); });
+document.addEventListener("DOMContentLoaded", ()=>{
     fetchCves();
+    document.getElementById("searchBtn").onclick = ()=>{ currentPage=1; fetchCves(); }
+    document.getElementById("resultsPerPage").onchange = e => { resultsPerPage=parseInt(e.target.value); currentPage=1; fetchCves(); }
 });
 </script>
 </body>

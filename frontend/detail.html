@@ -2,30 +2,406 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>CVE Detail</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CVE Detail - Security Dashboard</title>
 <style>
-body { font-family: Arial, sans-serif; background:#F7F9FA; margin:0; padding:0;}
-.container { max-width:1000px; margin:40px auto; background:#fff; padding:30px; border-radius:10px; box-shadow:0 5px 20px rgba(0,0,0,0.1);}
-h1, .section-title { color:#2C3E50; margin-bottom:15px;}
-table { width:100%; border-collapse: collapse; margin-bottom:20px;}
-th, td { border:1px solid #ddd; padding:10px; text-align:left;}
-th { background:#34495E; color:white;}
-.badge { padding:5px 10px; border-radius:5px; color:white; font-weight:bold; display:inline-block;}
-.badge.low { background: #27AE60; }
-.badge.medium { background: #D35400; }
-.badge.high { background: #C0392B; }
-a { color:#2980B9; text-decoration:underline; }
-button { background:#2980B9;color:white;padding:10px 15px;border:none;border-radius:5px; cursor:pointer; }
-button:hover { background:#1F618D; }
-.section-title { margin-top:20px; color:#2C3E50;}
-@media (max-width:768px){ table, th, td{ font-size:12px; } }
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary-color: #667eea;
+    --secondary-color: #764ba2;
+    --accent-color: #f093fb;
+    --danger-color: #ff6b6b;
+    --warning-color: #ffd93d;
+    --success-color: #6bcf7f;
+    --dark-bg: #1a1a2e;
+    --light-bg: #16213e;
+    --card-bg: rgba(255, 255, 255, 0.05);
+    --text-primary: #ffffff;
+    --text-secondary: #b8c1ec;
+    --border-color: rgba(255, 255, 255, 0.1);
+    --shadow-light: 0 8px 32px rgba(0, 0, 0, 0.3);
+    --shadow-heavy: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, var(--dark-bg) 0%, var(--light-bg) 100%);
+    min-height: 100vh;
+    color: var(--text-primary);
+    overflow-x: hidden;
+}
+
+/* Animated background */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image:
+        radial-gradient(circle at 25% 25%, rgba(102, 126, 234, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(240, 147, 251, 0.1) 0%, transparent 50%);
+    z-index: -1;
+    animation: float 20s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    25% { transform: translate(-10px, -10px) scale(1.05); }
+    50% { transform: translate(10px, -20px) scale(0.95); }
+    75% { transform: translate(-5px, 10px) scale(1.02); }
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    position: relative;
+    z-index: 1;
+}
+
+/* Header */
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.header h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+    from { filter: drop-shadow(0 0 20px rgba(102, 126, 234, 0.3)); }
+    to { filter: drop-shadow(0 0 40px rgba(240, 147, 251, 0.3)); }
+}
+
+button {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    background: var(--card-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    backdrop-filter: blur(20px);
+    position: relative;
+    overflow: hidden;
+}
+
+button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transition: left 0.5s;
+}
+
+button:hover::before {
+    left: 100%;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-light);
+    border-color: var(--primary-color);
+    background: rgba(102, 126, 234, 0.1);
+}
+
+/* Section styling */
+.section-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin: 30px 0 20px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.section-title::before {
+    content: '';
+    width: 4px;
+    height: 30px;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+    border-radius: 2px;
+}
+
+/* Table styling */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 30px;
+    background: var(--card-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--shadow-light);
+}
+
+th {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: white;
+    padding: 16px 20px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+td {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+    vertical-align: top;
+}
+
+tr:last-child td {
+    border-bottom: none;
+}
+
+tr:hover td {
+    background: rgba(102, 126, 234, 0.05);
+}
+
+th:first-child {
+    width: 200px;
+    min-width: 150px;
+}
+
+/* Badge styling */
+.badge {
+    padding: 8px 16px;
+    border-radius: 20px;
+    color: white;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.badge::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.badge:hover::before {
+    left: 100%;
+}
+
+.badge.low {
+    background: linear-gradient(135deg, var(--success-color) 0%, #4ecdc4 100%);
+}
+
+.badge.low::after {
+    content: '🟢';
+}
+
+.badge.medium {
+    background: linear-gradient(135deg, var(--warning-color) 0%, #ff9a56 100%);
+}
+
+.badge.medium::after {
+    content: '🟡';
+}
+
+.badge.high {
+    background: linear-gradient(135deg, var(--danger-color) 0%, #ee5a52 100%);
+}
+
+.badge.high::after {
+    content: '🔴';
+}
+
+/* Links */
+a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+a::before {
+    content: '🔗';
+    margin-right: 6px;
+}
+
+a:hover {
+    color: var(--accent-color);
+    text-decoration: underline;
+}
+
+/* Content sections */
+.content-section {
+    background: var(--card-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 30px;
+    margin-bottom: 30px;
+    box-shadow: var(--shadow-light);
+    transition: all 0.3s ease;
+}
+
+.content-section:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-heavy);
+}
+
+/* Special styling for description */
+.description-content {
+    line-height: 1.8;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.02);
+    padding: 20px;
+    border-radius: 10px;
+    border-left: 4px solid var(--primary-color);
+}
+
+/* Product and reference lists */
+.product-list, .reference-list {
+    max-height: 200px;
+    overflow-y: auto;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 10px;
+    border-radius: 8px;
+}
+
+.product-list::-webkit-scrollbar, .reference-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.product-list::-webkit-scrollbar-track, .reference-list::-webkit-scrollbar-track {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+.product-list::-webkit-scrollbar-thumb, .reference-list::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 3px;
+}
+
+/* Loading state */
+.loading {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+}
+
+.loading::before {
+    content: '';
+    display: inline-block;
+    width: 30px;
+    height: 30px;
+    border: 3px solid var(--border-color);
+    border-top: 3px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 15px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+    }
+
+    .header {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+    }
+
+    .header h1 {
+        font-size: 2rem;
+        margin-bottom: 20px;
+    }
+
+    table, th, td {
+        font-size: 14px;
+    }
+
+    th, td {
+        padding: 12px 15px;
+    }
+
+    th:first-child {
+        width: 120px;
+        min-width: 100px;
+    }
+
+    .section-title {
+        font-size: 1.3rem;
+    }
+
+    .content-section {
+        padding: 20px;
+    }
+
+    .badge {
+        font-size: 0.8rem;
+        padding: 6px 12px;
+    }
+}
+
+/* Smooth transitions */
+* {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
 </style>
 </head>
 <body>
 <div class="container">
-    <h1>CVE Details</h1>
+    <div class="header">
+        <h1>CVE Security Details</h1>
+        <button onclick="window.history.back()">
+            ← Back to Dashboard
+        </button>
+    </div>
+
     <div id="cveDetail"></div>
-    <button onclick="window.history.back()">Back</button>
 </div>
 
 <script>
@@ -62,25 +438,25 @@ async function fetchCveDetail() {
 
     // References
     let references = [];
-    if(data.raw_json?.references?.reference_data){
-        references = data.raw_json.references.reference_data.map(r => `<a href="${r.url}" target="_blank">${r.url}</a>`);
+    if(data.raw_json?.references){
+        references = data.raw_json.references.map(r => `<a href="${r.url}" target="_blank">${r.url}</a>`);
     }
 
     // Vulnerable products
     let products = [];
     try{
-        const nodes = data.raw_json.configurations.nodes;
+        const nodes = data.raw_json.configurations[0].nodes;
         nodes.forEach(node=>{
-            if(node.cpe_match){
-                node.cpe_match.forEach(match=>{
-                    if(match.vulnerable) products.push(match.cpe23Uri);
+            if(node.cpeMatch){
+                node.cpeMatch.forEach(match=>{
+                    if(match.vulnerable) products.push(match.matchCriteriaId);
                 });
             }
         });
     } catch(e){ products = []; }
 
     // Attack Vector & CVSS impacts
-    const cvssV3 = data.raw_json?.metrics?.cvssMetricV3?.cvssData || data.raw_json?.metrics?.cvssMetricV2?.cvssData || {};
+    const cvssV3 = data?.raw_json?.metrics?.cvssMetricV3?.[0]?.cvssData ?? data?.raw_json?.metrics?.cvssMetricV2?.[0]?.cvssData ?? {};
     const attackVector = cvssV3.vectorString || "-";
     const confImpact = cvssV3.confidentialityImpact || "-";
     const integImpact = cvssV3.integrityImpact || "-";

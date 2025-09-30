@@ -6,7 +6,7 @@ import psycopg2.extras
 from datetime import datetime, timedelta
 from pathlib import Path
 
-# ---------- DB CONFIG ----------
+#  DB CONFIG 
 DB_CONFIG = {
     "dbname": "neondb",
     "user": "neondb_owner",
@@ -28,7 +28,7 @@ def query_db(sql, params=None, fetch_one=False):
     conn.close()
     return result
 
-# ---------- FastAPI ----------
+#  FastAPI 
 app = FastAPI(title="NVD CVE Dashboard")
 app.add_middleware(
     CORSMiddleware,
@@ -37,7 +37,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---------- CVE LIST ----------
+#  CVE LIST 
 @app.get("/cves/list")
 def list_cves(
     page: int = 1,
@@ -80,7 +80,7 @@ def list_cves(
     total = query_db(f"SELECT COUNT(*) as total FROM cves WHERE {where_clause}", params, fetch_one=True)["total"]
     return {"page": page, "results_per_page": results_per_page, "total_records": total, "cves": cves}
 
-# ---------- CVE DETAIL ----------
+#  CVE DETAIL 
 @app.get("/cves/{cve_id}")
 def get_cve(cve_id: str):
     sql = "SELECT * FROM cves WHERE cve_id=%(cve_id)s"
@@ -89,7 +89,7 @@ def get_cve(cve_id: str):
         raise HTTPException(status_code=404, detail="CVE not found")
     return cve
 
-# ---------- Serve Frontend ----------
+#  Serve Frontend 
 FRONTEND_DIR = Path(__file__).parent / "frontend"
 
 @app.get("/", include_in_schema=False)

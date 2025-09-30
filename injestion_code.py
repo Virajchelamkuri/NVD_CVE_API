@@ -305,7 +305,7 @@ def run_ingestion(limit=50000, page_size=1000, delay=1.0):
     print(f"Ingestion session completed. Total inserted/updated this run: {inserted}")
 
 
-# ==============================
-# 5. Run Script
-# ==============================
+
+# Run Script
+
 run_ingestion(limit=100000, page_size=1000, delay=1.0)

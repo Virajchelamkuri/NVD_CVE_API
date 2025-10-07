@@ -221,11 +221,19 @@ body::before {
   gap: 10px;
 }
 
+.results-per-page label {
+  color: #666;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
 .results-per-page select {
   padding: 8px 12px;
   border: 2px solid #e1e8ed;
   border-radius: 8px;
   background: white;
+  cursor: pointer;
+  font-size: 0.95rem;
 }
 
 .table-container {
@@ -348,6 +356,37 @@ body::before {
   transform: none;
 }
 
+.page-number {
+  padding: 10px 15px;
+  border: 2px solid #667eea;
+  border-radius: 8px;
+  background: white;
+  color: #667eea;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  min-width: 45px;
+  text-align: center;
+}
+
+.page-number:hover {
+  background: #667eea;
+  color: white;
+  transform: translateY(-1px);
+}
+
+.page-number.active {
+  background: #667eea;
+  color: white;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.page-ellipsis {
+  padding: 10px 5px;
+  color: #666;
+  font-weight: 500;
+}
+
 .page-info {
   color: #666;
   font-weight: 500;
@@ -402,7 +441,7 @@ body::before {
 <body>
 <div class="dashboard-container">
   <div class="header">
-    <h1>CVE Dashboard</h1>
+    <h1>Securin Labs</h1>
     <p>National Vulnerability Database - Security Intelligence Platform</p>
   </div>
 
@@ -424,13 +463,6 @@ body::before {
         <div class="filter-group">
           <input type="number" class="filter-input" id="filterDays" placeholder="Last N Days">
         </div>
-        <div class="filter-group">
-          <select class="filter-select" id="resultsPerPage">
-            <option value="10">10</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-          </select>
-        </div>
       </div>
 
       <div style="text-align: center; margin-bottom: 20px;">
@@ -440,6 +472,15 @@ body::before {
 
     <div class="results-header">
       <div class="total-records" id="totalRecords">Loading...</div>
+      <div class="results-per-page">
+        <label>Rows per page:</label>
+        <select class="filter-select" id="resultsPerPage">
+          <option value="10">10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
       <div class="page-info" id="pageInfo">Page 1</div>
     </div>
 
@@ -473,9 +514,9 @@ body::before {
       </table>
     </div>
 
-    <div class="pagination">
+    <div class="pagination" id="paginationContainer">
       <button onclick="prevPage()" id="prevBtn">Previous</button>
-      <span class="page-info" id="pageInfoBottom">Page 1</span>
+      <div id="pageNumbers" style="display: flex; gap: 8px;"></div>
       <button onclick="nextPage()" id="nextBtn">Next</button>
     </div>
   </div>
@@ -501,6 +542,70 @@ function sort(column){
 function prevPage(){ if(currentPage>1){currentPage--; fetchCves(); } }
 function nextPage(){ currentPage++; fetchCves(); }
 
+function goToPage(page) {
+    currentPage = page;
+    fetchCves();
+}
+
+function renderPagination(totalRecords) {
+    const totalPages = Math.ceil(totalRecords / resultsPerPage);
+    const pageNumbersContainer = document.getElementById("pageNumbers");
+    pageNumbersContainer.innerHTML = "";
+
+    const maxVisiblePages = 7;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage < maxVisiblePages - 1) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    // First page
+    if (startPage > 1) {
+        const firstPage = document.createElement("button");
+        firstPage.className = "page-number";
+        firstPage.textContent = "1";
+        firstPage.onclick = () => goToPage(1);
+        pageNumbersContainer.appendChild(firstPage);
+
+        if (startPage > 2) {
+            const ellipsis = document.createElement("span");
+            ellipsis.className = "page-ellipsis";
+            ellipsis.textContent = "...";
+            pageNumbersContainer.appendChild(ellipsis);
+        }
+    }
+
+    // Page numbers
+    for (let i = startPage; i <= endPage; i++) {
+        const pageBtn = document.createElement("button");
+        pageBtn.className = "page-number" + (i === currentPage ? " active" : "");
+        pageBtn.textContent = i;
+        pageBtn.onclick = () => goToPage(i);
+        pageNumbersContainer.appendChild(pageBtn);
+    }
+
+    // Last page
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+            const ellipsis = document.createElement("span");
+            ellipsis.className = "page-ellipsis";
+            ellipsis.textContent = "...";
+            pageNumbersContainer.appendChild(ellipsis);
+        }
+
+        const lastPage = document.createElement("button");
+        lastPage.className = "page-number";
+        lastPage.textContent = totalPages;
+        lastPage.onclick = () => goToPage(totalPages);
+        pageNumbersContainer.appendChild(lastPage);
+    }
+
+    // Enable/disable prev/next buttons
+    document.getElementById("prevBtn").disabled = currentPage === 1;
+    document.getElementById("nextBtn").disabled = currentPage === totalPages;
+}
+
 async function fetchCves(){
     let url = `${API_BASE}/cves/list?page=${currentPage}&results_per_page=${resultsPerPage}&sort_by=${currentSort}&sort_order=${sortOrder}`;
     const year = document.getElementById("filterYear").value;
@@ -522,7 +627,9 @@ async function fetchCves(){
 
     document.getElementById("totalRecords").innerText = `Total Records: ${data.total_records}`;
     document.getElementById("pageInfo").innerText = `Page ${data.page}`;
-    document.getElementById("pageInfoBottom").innerText = `Page ${data.page}`;
+
+    // Render pagination
+    renderPagination(data.total_records);
 
     const tableBody = document.getElementById("cveTableBody");
     tableBody.innerHTML = "";
